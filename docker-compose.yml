@@ -1,0 +1,62 @@
+version: '3.9'
+
+volumes:
+    prometheus_data: {}
+    grafana_data: {}
+
+services:
+  triton:
+    image: kzsdp.azurecr.io/triton-toms:0.1
+    command: tritonserver --model-repository=/models --strict-model-config=false --grpc-infer-allocation-pool-size=40 --log-verbose=0
+    volumes:
+      - ../triton-models:/models
+    shm_size: '2gb'
+    ipc: host
+    ulimits:
+      memlock: 1
+      stack: 67108864 
+    ports:
+      - 8000:8000
+      - 8001:8001
+      - 8002:8002
+    runtime: nvidia
+  toms-service:
+    image: kzsdp.azurecr.io/tomscmdservice:0.6
+    command: python3 /toms/toms-cmd.py
+    ipc: host
+    volumes:
+      -  ../toms-data:/data
+    runtime: nvidia
+    depends_on:
+      - triton
+    network_mode: "host"
+
+  prometheus:
+    image: prom/prometheus
+    depends_on:
+      - triton
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "10090:9090"
+    #network_mode: "host"
+    restart: always
+
+  grafana:
+    image: grafana/grafana
+    user: "472"
+    depends_on:
+      - prometheus
+    ports:
+      - "5000:3000"
+    volumes:
+      - ./configs/grafana_datasources.yaml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
+      - ./configs/grafana_dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - ./dashboards:/opt/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    #network_mode: "host"
+    restart: always

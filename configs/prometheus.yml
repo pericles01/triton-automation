@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s # By default, scrape targets every 15 seconds.
+
+# Load and evaluate rules in this file every 'evaluation_interval' seconds.
+rule_files:
+  - 'alert.rules'
+  # - "first.rules"
+  # - "second.rules"
+
+# alert
+alerting:
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      - "alertmanager:9093"
+
+scrape_configs:
+  - job_name: 'prometheus'
+    #scrape_interval: 30s
+    #scheme: http
+    static_configs:
+      - targets: ['10.11.20.62:10090']
+    # Collect HugeCTR Backend performance indicators
+  - job_name: 'triton_backend'
+    #metrics_path: /metrics
+    static_configs:
+     - targets: ['10.11.20.62:8002']
